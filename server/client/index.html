@@ -3,77 +3,137 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Мониторинг ДТП - Системная информация</title>
+    <title>Мониторинг ДТП</title>
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            background-color: #f4f4f9;
-            color: #333;
-            padding: 20px;
-        }
-        .card {
-            background: white;
-            padding: 20px;
-            border-radius: 8px;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-            max-width: 500px;
-            margin: 0 auto;
-        }
+        body { font-family: Arial, sans-serif; background-color: #f4f4f9; padding: 20px; }
+        .card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); max-width: 800px; margin: 0 auto 20px; }
         h1 { color: #2c3e50; text-align: center; }
-        .info-line { margin: 10px 0; font-size: 18px; }
-        .value { font-weight: bold; color: #e74c3c; }
-        #status { text-align: center; margin-top: 20px; font-weight: bold; color: green; }
+        .form-group { margin-bottom: 10px; }
+        label { display: block; font-weight: bold; margin-bottom: 5px; }
+        input, select { width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
+        button { background-color: #2e75b6; color: white; padding: 10px 15px; border: none; border-radius: 4px; cursor: pointer; font-size: 16px; margin-top: 10px;}
+        button:hover { background-color: #1f4e79; }
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; font-size: 14px;}
+        th { background-color: #f2f2f2; }
+        .error { color: red; font-weight: bold; margin-top: 10px; }
+        .success { color: green; font-weight: bold; margin-top: 10px; }
     </style>
 </head>
 <body>
 
     <div class="card">
-        <h1>Система анализа ДТП</h1>
-        <p>Данные с сервера (обновляются каждые 5 секунд):</p>
-        
-        <div class="info-line">Версия Node.js: <span id="node-version" class="value">Загрузка...</span></div>
-        <div class="info-line">Время работы (в секундах): <span id="uptime" class="value">-</span></div>
-        <div class="info-line">Платформа: <span id="platform" class="value">-</span></div>
+        <h1>Добавить новое ДТП</h1>
+        <form id="accidentForm">
+            <div class="form-group">
+                <label>Место (Location):</label>
+                <input type="text" id="location" required placeholder="напр. Бишкек, ул. Ленина">
+            </div>
+            <div class="form-group">
+                <label>Дата:</label>
+                <input type="date" id="date" required>
+            </div>
+            <div class="form-group">
+                <label>Тип ДТП:</label>
+                <select id="type">
+                    <option value="Столкновение">Столкновение</option>
+                    <option value="Наезд на пешехода">Наезд на пешехода</option>
+                    <option value="Опрокидывание">Опрокидывание</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Погода:</label>
+                <input type="text" id="weather" placeholder="напр. Дождь, Ясно">
+            </div>
+            <button type="submit">Сохранить ДТП</button>
+            <div id="message"></div>
+        </form>
+    </div>
 
-        <div id="status">Подключено к серверу</div>
+    <div class="card">
+        <h1>Список ДТП</h1>
+        <button onclick="loadAccidents()">Обновить список</button>
+        <table>
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Место</th>
+                    <th>Дата</th>
+                    <th>Тип</th>
+                    <th>Погода</th>
+                </tr>
+            </thead>
+            <tbody id="accidentsTable">
+                <!-- Сюда будут загружаться данные -->
+            </tbody>
+        </table>
     </div>
 
     <script>
-        // Функция для запроса данных с сервера
-        async function fetchSystemInfo() {
+        const API_URL = 'http://localhost:3000/api/v1/accidents';
+
+        // 1. Функция загрузки списка (GET)
+        async function loadAccidents() {
             try {
-                // ВАЖНО: мы используем порт 3000, который вы указали в сервере!
-                const response = await fetch('http://localhost:3000/api/v1/system-info');
+                const response = await fetch(API_URL);
+                const result = await response.json();
                 
-                if (!response.ok) {
-                    throw new Error('Ошибка сервера');
-                }
+                const tbody = document.getElementById('accidentsTable');
+                tbody.innerHTML = ''; // Очищаем таблицу
 
-                const data = await response.json();
-
-                // Обновляем данные на странице
-                document.getElementById('node-version').textContent = data.nodeVersion;
-                document.getElementById('uptime').textContent = data.uptimeSeconds;
-                document.getElementById('platform').textContent = data.platform;
-
-                // Меняем статус на успешный
-                const statusDiv = document.getElementById('status');
-                statusDiv.textContent = 'Данные успешно обновлены';
-                statusDiv.style.color = 'green';
-
+                result.data.forEach(acc => {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td>${acc.id}</td>
+                        <td>${acc.location}</td>
+                        <td>${acc.date}</td>
+                        <td>${acc.type}</td>
+                        <td>${acc.weather}</td>
+                    `;
+                    tbody.appendChild(tr);
+                });
             } catch (error) {
-                console.error('Ошибка:', error);
-                const statusDiv = document.getElementById('status');
-                statusDiv.textContent = 'Ошибка подключения к серверу!';
-                statusDiv.style.color = 'red';
+                console.error("Ошибка загрузки:", error);
             }
         }
 
-        // Запускаем функцию сразу при загрузке страницы
-        fetchSystemInfo();
+        // 2. Обработчик отправки формы (POST)
+        document.getElementById('accidentForm').addEventListener('submit', async (e) => {
+            e.preventDefault(); // Отменяем перезагрузку страницы
 
-        // И повторяем её каждые 5000 миллисекунд (5 секунд)
-        setInterval(fetchSystemInfo, 5000);
+            const newAccident = {
+                location: document.getElementById('location').value,
+                date: document.getElementById('date').value,
+                type: document.getElementById('type').value,
+                weather: document.getElementById('weather').value
+            };
+
+            try {
+                const response = await fetch(API_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(newAccident)
+                });
+
+                const msgDiv = document.getElementById('message');
+
+                if (response.ok) {
+                    msgDiv.className = 'success';
+                    msgDiv.textContent = 'ДТП успешно добавлено!';
+                    document.getElementById('accidentForm').reset();
+                    loadAccidents(); // Обновляем таблицу
+                } else {
+                    const err = await response.json();
+                    msgDiv.className = 'error';
+                    msgDiv.textContent = 'Ошибка: ' + err.error.message;
+                }
+            } catch (error) {
+                console.error("Ошибка отправки:", error);
+            }
+        });
+
+        // Загружаем данные при открытии страницы
+        loadAccidents();
     </script>
 </body>
 </html>
