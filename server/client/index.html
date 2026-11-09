@@ -5,19 +5,22 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Мониторинг ДТП</title>
     <style>
-        body { font-family: Arial, sans-serif; background-color: #f4f4f9; padding: 20px; }
-        .card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); max-width: 800px; margin: 0 auto 20px; }
+        body { font-family: Arial, sans-serif; background-color: #f4f4f9; padding: 20px; margin: 0; }
+        .card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); max-width: 900px; margin: 0 auto 20px; }
         h1 { color: #2c3e50; text-align: center; }
         .form-group { margin-bottom: 10px; }
         label { display: block; font-weight: bold; margin-bottom: 5px; }
         input, select { width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
-        button { background-color: #2e75b6; color: white; padding: 10px 15px; border: none; border-radius: 4px; cursor: pointer; font-size: 16px; margin-top: 10px;}
+        button { background-color: #2e75b6; color: white; padding: 10px 15px; border: none; border-radius: 4px; cursor: pointer; font-size: 14px; margin-top: 10px;}
         button:hover { background-color: #1f4e79; }
+        .btn-delete { background-color: #dc3545; padding: 5px 10px; font-size: 12px; margin: 0; }
+        .btn-delete:hover { background-color: #c82333; }
         table { width: 100%; border-collapse: collapse; margin-top: 15px; }
         th, td { border: 1px solid #ddd; padding: 8px; text-align: left; font-size: 14px;}
         th { background-color: #f2f2f2; }
         .error { color: red; font-weight: bold; margin-top: 10px; }
         .success { color: green; font-weight: bold; margin-top: 10px; }
+        #searchInput { width: 100%; padding: 10px; margin-bottom: 15px; border: 1px solid #2e75b6; border-radius: 4px; font-size: 16px; box-sizing: border-box;}
     </style>
 </head>
 <body>
@@ -52,7 +55,12 @@
 
     <div class="card">
         <h1>Список ДТП</h1>
+        
+        <!-- Поле для живого поиска -->
+        <input type="text" id="searchInput" placeholder="🔍 Поиск по месту (например, Киевская)...">
+        
         <button onclick="loadAccidents()">Обновить список</button>
+        
         <table>
             <thead>
                 <tr>
@@ -61,45 +69,58 @@
                     <th>Дата</th>
                     <th>Тип</th>
                     <th>Погода</th>
+                    <th>Действия</th>
                 </tr>
             </thead>
             <tbody id="accidentsTable">
-                <!-- Сюда будут загружаться данные -->
+                <!-- Данные загрузятся скриптом -->
             </tbody>
         </table>
     </div>
 
     <script>
         const API_URL = 'http://localhost:3000/api/v1/accidents';
+        let allAccidents = []; // Храним все данные для поиска
 
         // 1. Функция загрузки списка (GET)
         async function loadAccidents() {
             try {
                 const response = await fetch(API_URL);
                 const result = await response.json();
-                
-                const tbody = document.getElementById('accidentsTable');
-                tbody.innerHTML = ''; // Очищаем таблицу
-
-                result.data.forEach(acc => {
-                    const tr = document.createElement('tr');
-                    tr.innerHTML = `
-                        <td>${acc.id}</td>
-                        <td>${acc.location}</td>
-                        <td>${acc.date}</td>
-                        <td>${acc.type}</td>
-                        <td>${acc.weather}</td>
-                    `;
-                    tbody.appendChild(tr);
-                });
+                allAccidents = result.data; 
+                renderTable(allAccidents); 
             } catch (error) {
                 console.error("Ошибка загрузки:", error);
             }
         }
 
-        // 2. Обработчик отправки формы (POST)
+        // 2. Функция отрисовки таблицы (и для поиска, и для удаления)
+        function renderTable(accidentsToRender) {
+            const tbody = document.getElementById('accidentsTable');
+            tbody.innerHTML = ''; 
+
+            if (accidentsToRender.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;">Ничего не найдено</td></tr>';
+                return;
+            }
+
+            accidentsToRender.forEach(acc => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${acc.id}</td>
+                    <td>${acc.location}</td>
+                    <td>${acc.date}</td>
+                    <td>${acc.type}</td>
+                    <td>${acc.weather || '-'}</td>
+                    <td><button class="btn-delete" onclick="deleteAccident('${acc.id}')">Удалить</button></td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        // 3. Обработчик отправки формы (POST)
         document.getElementById('accidentForm').addEventListener('submit', async (e) => {
-            e.preventDefault(); // Отменяем перезагрузку страницы
+            e.preventDefault(); 
 
             const newAccident = {
                 location: document.getElementById('location').value,
@@ -121,7 +142,7 @@
                     msgDiv.className = 'success';
                     msgDiv.textContent = 'ДТП успешно добавлено!';
                     document.getElementById('accidentForm').reset();
-                    loadAccidents(); // Обновляем таблицу
+                    loadAccidents(); 
                 } else {
                     const err = await response.json();
                     msgDiv.className = 'error';
@@ -130,6 +151,31 @@
             } catch (error) {
                 console.error("Ошибка отправки:", error);
             }
+        });
+
+        // 4. Функция удаления (DELETE)
+        async function deleteAccident(id) {
+            if (!confirm(`Вы уверены, что хотите удалить ДТП с ID ${id}?`)) return;
+
+            try {
+                const response = await fetch(`${API_URL}/${id}`, { method: 'DELETE' });
+                if (response.ok) {
+                    loadAccidents(); // Обновляем таблицу после удаления
+                } else {
+                    alert('Ошибка при удалении ДТП');
+                }
+            } catch (error) {
+                console.error("Ошибка удаления:", error);
+            }
+        }
+
+        // 5. Обработчик живого поиска
+        document.getElementById('searchInput').addEventListener('input', (e) => {
+            const query = e.target.value.toLowerCase();
+            const filtered = allAccidents.filter(acc => 
+                acc.location.toLowerCase().includes(query)
+            );
+            renderTable(filtered);
         });
 
         // Загружаем данные при открытии страницы
