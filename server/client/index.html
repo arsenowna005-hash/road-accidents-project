@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Мониторинг ДТП - Системная информация</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f9;
+            color: #333;
+            padding: 20px;
+        }
+        .card {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            max-width: 500px;
+            margin: 0 auto;
+        }
+        h1 { color: #2c3e50; text-align: center; }
+        .info-line { margin: 10px 0; font-size: 18px; }
+        .value { font-weight: bold; color: #e74c3c; }
+        #status { text-align: center; margin-top: 20px; font-weight: bold; color: green; }
+    </style>
+</head>
+<body>
+
+    <div class="card">
+        <h1>Система анализа ДТП</h1>
+        <p>Данные с сервера (обновляются каждые 5 секунд):</p>
+        
+        <div class="info-line">Версия Node.js: <span id="node-version" class="value">Загрузка...</span></div>
+        <div class="info-line">Время работы (в секундах): <span id="uptime" class="value">-</span></div>
+        <div class="info-line">Платформа: <span id="platform" class="value">-</span></div>
+
+        <div id="status">Подключено к серверу</div>
+    </div>
+
+    <script>
+        // Функция для запроса данных с сервера
+        async function fetchSystemInfo() {
+            try {
+                // ВАЖНО: мы используем порт 3000, который вы указали в сервере!
+                const response = await fetch('http://localhost:3000/api/v1/system-info');
+                
+                if (!response.ok) {
+                    throw new Error('Ошибка сервера');
+                }
+
+                const data = await response.json();
+
+                // Обновляем данные на странице
+                document.getElementById('node-version').textContent = data.nodeVersion;
+                document.getElementById('uptime').textContent = data.uptimeSeconds;
+                document.getElementById('platform').textContent = data.platform;
+
+                // Меняем статус на успешный
+                const statusDiv = document.getElementById('status');
+                statusDiv.textContent = 'Данные успешно обновлены';
+                statusDiv.style.color = 'green';
+
+            } catch (error) {
+                console.error('Ошибка:', error);
+                const statusDiv = document.getElementById('status');
+                statusDiv.textContent = 'Ошибка подключения к серверу!';
+                statusDiv.style.color = 'red';
+            }
+        }
+
+        // Запускаем функцию сразу при загрузке страницы
+        fetchSystemInfo();
+
+        // И повторяем её каждые 5000 миллисекунд (5 секунд)
+        setInterval(fetchSystemInfo, 5000);
+    </script>
+</body>
+</html>
