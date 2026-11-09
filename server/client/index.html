@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Мониторинг ДТП</title>
+    <title>Мониторинг ДТП (Лаб. 3)</title>
     <style>
         body { font-family: Arial, sans-serif; background-color: #f4f4f9; padding: 20px; margin: 0; }
         .card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); max-width: 900px; margin: 0 auto 20px; }
@@ -18,9 +18,10 @@
         table { width: 100%; border-collapse: collapse; margin-top: 15px; }
         th, td { border: 1px solid #ddd; padding: 8px; text-align: left; font-size: 14px;}
         th { background-color: #f2f2f2; }
-        .error { color: red; font-weight: bold; margin-top: 10px; }
-        .success { color: green; font-weight: bold; margin-top: 10px; }
+        .error { color: #721c24; background-color: #f8d7da; border: 1px solid #f5c6cb; padding: 10px; border-radius: 4px; margin-top: 10px; font-weight: bold;}
+        .success { color: #155724; background-color: #d4edda; border: 1px solid #c3e6cb; padding: 10px; border-radius: 4px; margin-top: 10px; font-weight: bold;}
         #searchInput { width: 100%; padding: 10px; margin-bottom: 15px; border: 1px solid #2e75b6; border-radius: 4px; font-size: 16px; box-sizing: border-box;}
+        .spinner { display: none; text-align: center; color: #2e75b6; font-weight: bold; margin-top: 15px; padding: 10px; }
     </style>
 </head>
 <body>
@@ -60,6 +61,9 @@
         <input type="text" id="searchInput" placeholder="🔍 Поиск по месту (например, Киевская)...">
         
         <button onclick="loadAccidents()">Обновить список</button>
+
+        <!-- Спиннер загрузки (Лаб 3) -->
+        <div id="loadingSpinner" class="spinner">⏳ Загрузка данных с сервера...</div>
         
         <table>
             <thead>
@@ -82,8 +86,11 @@
         const API_URL = 'http://localhost:3000/api/v1/accidents';
         let allAccidents = []; // Храним все данные для поиска
 
-        // 1. Функция загрузки списка (GET)
+        // 1. Функция загрузки списка (GET) с показом спиннера
         async function loadAccidents() {
+            const spinner = document.getElementById('loadingSpinner');
+            spinner.style.display = 'block'; // Показываем спиннер
+
             try {
                 const response = await fetch(API_URL);
                 const result = await response.json();
@@ -91,10 +98,12 @@
                 renderTable(allAccidents); 
             } catch (error) {
                 console.error("Ошибка загрузки:", error);
+            } finally {
+                spinner.style.display = 'none'; // Прячем спиннер в любом случае
             }
         }
 
-        // 2. Функция отрисовки таблицы (и для поиска, и для удаления)
+        // 2. Функция отрисовки таблицы
         function renderTable(accidentsToRender) {
             const tbody = document.getElementById('accidentsTable');
             tbody.innerHTML = ''; 
@@ -118,12 +127,22 @@
             });
         }
 
-        // 3. Обработчик отправки формы (POST)
+        // 3. Обработчик отправки формы (POST) с валидацией
         document.getElementById('accidentForm').addEventListener('submit', async (e) => {
             e.preventDefault(); 
 
+            const locationValue = document.getElementById('location').value.trim();
+            const msgDiv = document.getElementById('message');
+
+            // ВАЛИДАЦИЯ (Лаб 3): Место должно быть не короче 5 символов
+            if (locationValue.length < 5) {
+                msgDiv.className = 'error';
+                msgDiv.textContent = 'Ошибка: Место ДТП должно содержать минимум 5 символов!';
+                return; // Останавливаем отправку запроса
+            }
+
             const newAccident = {
-                location: document.getElementById('location').value,
+                location: locationValue,
                 date: document.getElementById('date').value,
                 type: document.getElementById('type').value,
                 weather: document.getElementById('weather').value
@@ -136,8 +155,6 @@
                     body: JSON.stringify(newAccident)
                 });
 
-                const msgDiv = document.getElementById('message');
-
                 if (response.ok) {
                     msgDiv.className = 'success';
                     msgDiv.textContent = 'ДТП успешно добавлено!';
@@ -146,10 +163,12 @@
                 } else {
                     const err = await response.json();
                     msgDiv.className = 'error';
-                    msgDiv.textContent = 'Ошибка: ' + err.error.message;
+                    msgDiv.textContent = 'Ошибка сервера: ' + err.error.message;
                 }
             } catch (error) {
                 console.error("Ошибка отправки:", error);
+                msgDiv.className = 'error';
+                msgDiv.textContent = 'Ошибка сети. Проверьте подключение к серверу.';
             }
         });
 
